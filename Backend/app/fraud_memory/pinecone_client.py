@@ -4,18 +4,24 @@ import json
 import logging
 import os
 from datetime import datetime, timezone
+from pathlib import Path
+from threading import Lock
 from typing import Any
 from uuid import uuid4
 
+import numpy as np
 from dotenv import load_dotenv
 
 load_dotenv()
 
-DEFAULT_PINECONE_INDEX_NAME = "zora-ai"
-DEFAULT_PINECONE_HOST = "https://zora-ai-ks36vlc.svc.aped-4627-b74a.pinecone.io"
 DEFAULT_NAMESPACE = "fraud_vectors"
+VECTOR_DIM = 384
+FAISS_DATA_DIR = os.getenv("FAISS_DATA_DIR", str(Path(__file__).parent.parent.parent / "data" / "faiss"))
 
-logger = logging.getLogger("zora.fraud_memory.pinecone")
+logger = logging.getLogger("zora.fraud_memory.faiss")
+
+_store_lock = Lock()
+_store_cache: dict[str, FAISSVectorStore] = {}
 
 
 def _sanitize_metadata_value(value: Any) -> Any:
@@ -35,48 +41,67 @@ def _sanitize_metadata_value(value: Any) -> Any:
 def _sanitize_metadata(payload: dict[str, Any] | None) -> dict[str, Any]:
     if not payload:
         return {}
-
-    sanitized: dict[str, Any] = {}
-    for key, value in payload.items():
-        clean_value = _sanitize_metadata_value(value)
-        if clean_value is not None:
-            sanitized[str(key)] = clean_value
-    return sanitized
+    return {
+        str(k): _sanitize_metadata_value(v)
+        for k, v in payload.items()
+        if _sanitize_metadata_value(v) is not None
+    }
 
 
-def _build_pinecone_index():
-    try:
-        from pinecone import Pinecone
-    except ImportError as exc:
-        raise RuntimeError("pinecone package is required. Install it with 'pip install pinecone'.") from exc
-
-    api_key = os.getenv("PINECONE_API_KEY")
-    if not api_key:
-        raise RuntimeError("PINECONE_API_KEY is not set in environment or .env")
-
-    index_name = (os.getenv("PINECONE_INDEX_NAME") or DEFAULT_PINECONE_INDEX_NAME).strip()
-    host = (os.getenv("PINECONE_HOST") or DEFAULT_PINECONE_HOST).strip()
-
-    client = Pinecone(api_key=api_key)
-    logger.info("Initializing Pinecone index client", extra={"host": host or None, "index_name": index_name})
-    if host:
-        return client.Index(host=host)
-    return client.Index(index_name)
+def _uuid_to_int64(uid: str) -> int:
+    """Hash a UUID/string into a stable int64 suitable for FAISS IDs."""
+    import hashlib
+    return int(hashlib.sha256(uid.encode()).hexdigest()[:16], 16) % (2**63)
 
 
-class PineconeVectorStore:
-    """Wrapper around Pinecone operations used by fraud memory services."""
+class FAISSVectorStore:
+    """
+    Drop-in FAISS replacement for PineconeVectorStore.
+    Stores each namespace as a separate .index + .meta.json pair on disk.
+    """
 
-    def __init__(self, index: Any, namespace: str = DEFAULT_NAMESPACE):
-        self.index = index
+    def __init__(self, namespace: str = DEFAULT_NAMESPACE, data_dir: str = FAISS_DATA_DIR):
+        import faiss  # noqa: PLC0415
+
         self.namespace = (namespace or DEFAULT_NAMESPACE).strip()
-        logger.info("Pinecone vector store ready", extra={"namespace": self.namespace})
+        self.data_dir = Path(data_dir)
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+
+        self._index_path = self.data_dir / f"{self.namespace}.index"
+        self._meta_path = self.data_dir / f"{self.namespace}.meta.json"
+        self._lock = Lock()
+
+        if self._index_path.exists() and self._meta_path.exists():
+            self._index = faiss.read_index(str(self._index_path))
+            with open(self._meta_path, encoding="utf-8") as f:
+                self._metadata: dict[str, dict[str, Any]] = json.load(f)
+            logger.info(
+                "Loaded FAISS index from disk",
+                extra={"namespace": self.namespace, "total": self._index.ntotal},
+            )
+        else:
+            flat = faiss.IndexFlatIP(VECTOR_DIM)
+            self._index = faiss.IndexIDMap(flat)
+            self._metadata = {}
+            logger.info("Created new FAISS index", extra={"namespace": self.namespace})
+
+    # ── persistence ────────────────────────────────────────────────────────────
+
+    def _save(self) -> None:
+        import faiss  # noqa: PLC0415
+
+        faiss.write_index(self._index, str(self._index_path))
+        with open(self._meta_path, "w", encoding="utf-8") as f:
+            json.dump(self._metadata, f, ensure_ascii=False)
+
+    # ── write operations ───────────────────────────────────────────────────────
 
     def upsert_embedding(self, embedding: list[float], text: str, fraud_label: str) -> str:
         point_id = str(uuid4())
         payload = {
             "text": text,
             "fraud_label": fraud_label,
+            "label": fraud_label,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         self.upsert_point(point_id=point_id, vector=embedding, payload=payload)
@@ -84,17 +109,18 @@ class PineconeVectorStore:
 
     def upsert_point(self, point_id: str, vector: list[float], payload: dict[str, Any], wait: bool = True) -> str:
         _ = wait
-        logger.info("Upserting single vector to Pinecone", extra={"namespace": self.namespace, "vector_id": str(point_id)})
-        self.index.upsert(
-            vectors=[
-                {
-                    "id": str(point_id),
-                    "values": [float(v) for v in vector],
-                    "metadata": _sanitize_metadata(payload),
-                }
-            ],
-            namespace=self.namespace,
-        )
+        int_id = _uuid_to_int64(str(point_id))
+        vec = np.array([vector], dtype=np.float32)
+        norm = np.linalg.norm(vec)
+        if norm > 0:
+            vec /= norm
+
+        with self._lock:
+            self._index.add_with_ids(vec, np.array([int_id], dtype=np.int64))
+            self._metadata[str(int_id)] = _sanitize_metadata(payload)
+            self._save()
+
+        logger.debug("Upserted vector", extra={"namespace": self.namespace, "id": point_id})
         return str(point_id)
 
     def upsert_points(self, points: list[dict[str, Any]], wait: bool = True) -> None:
@@ -102,66 +128,91 @@ class PineconeVectorStore:
         if not points:
             return
 
-        vectors = []
+        vectors, int_ids, metas = [], [], []
         for point in points:
-            vectors.append(
-                {
-                    "id": str(point.get("id") or uuid4()),
-                    "values": [float(v) for v in (point.get("vector") or [])],
-                    "metadata": _sanitize_metadata(point.get("payload") or {}),
-                }
-            )
+            uid = str(point.get("id") or uuid4())
+            raw_vec = list(point.get("vector") or [])
+            if not raw_vec:
+                continue
+            int_id = _uuid_to_int64(uid)
+            vec = np.array(raw_vec, dtype=np.float32)
+            norm = np.linalg.norm(vec)
+            if norm > 0:
+                vec /= norm
+            vectors.append(vec)
+            int_ids.append(int_id)
+            metas.append((str(int_id), _sanitize_metadata(point.get("payload") or {})))
+
+        if not vectors:
+            return
+
+        batch_vecs = np.stack(vectors, axis=0).astype(np.float32)
+        batch_ids = np.array(int_ids, dtype=np.int64)
+
+        with self._lock:
+            self._index.add_with_ids(batch_vecs, batch_ids)
+            for meta_id, meta in metas:
+                self._metadata[meta_id] = meta
+            self._save()
 
         logger.info(
-            "Upserting vector batch to Pinecone",
-            extra={"namespace": self.namespace, "batch_size": len(vectors)},
+            "Upserted vector batch",
+            extra={"namespace": self.namespace, "count": len(vectors)},
         )
-        self.index.upsert(vectors=vectors, namespace=self.namespace)
+
+    # ── read operations ────────────────────────────────────────────────────────
 
     def search(self, embedding: list[float], limit: int = 5) -> list[dict[str, str | float | None]]:
-        logger.info("Running Pinecone similarity query", extra={"namespace": self.namespace, "top_k": limit})
-        response = self.index.query(
-            namespace=self.namespace,
-            vector=[float(v) for v in embedding],
-            top_k=limit,
-            include_metadata=True,
-        )
+        with self._lock:
+            total = self._index.ntotal
 
-        matches = getattr(response, "matches", None)
-        if matches is None and isinstance(response, dict):
-            matches = response.get("matches") or []
-        matches = matches or []
+        if total == 0:
+            logger.info("FAISS index is empty", extra={"namespace": self.namespace})
+            return []
+
+        query = np.array([embedding], dtype=np.float32)
+        norm = np.linalg.norm(query)
+        if norm > 0:
+            query /= norm
+
+        k = min(limit, total)
+
+        with self._lock:
+            scores, ids = self._index.search(query, k)
+            meta_snapshot = self._metadata.copy()
 
         results: list[dict[str, str | float | None]] = []
-        for match in matches:
-            metadata = getattr(match, "metadata", None)
-            if metadata is None and isinstance(match, dict):
-                metadata = match.get("metadata")
-            metadata = metadata or {}
+        for score, int_id in zip(scores[0], ids[0]):
+            if int_id == -1:
+                continue
+            meta = meta_snapshot.get(str(int_id), {})
+            matched_label = meta.get("fraud_label") or meta.get("label")
+            results.append({
+                "text": meta.get("text"),
+                "similarity": round(float(score), 4),
+                "fraud_label": matched_label,
+                "label": matched_label,
+                "source": meta.get("source"),
+                "source_file": meta.get("source_file"),
+                "timestamp": meta.get("timestamp"),
+            })
 
-            score = getattr(match, "score", None)
-            if score is None and isinstance(match, dict):
-                score = match.get("score")
-
-            matched_label = metadata.get("fraud_label") or metadata.get("label")
-            results.append(
-                {
-                    "text": metadata.get("text"),
-                    "similarity": round(float(score or 0.0), 4),
-                    "fraud_label": matched_label,
-                    "label": matched_label,
-                    "source": metadata.get("source"),
-                    "source_file": metadata.get("source_file"),
-                    "timestamp": metadata.get("timestamp"),
-                }
-            )
         logger.info(
-            "Pinecone similarity query completed",
-            extra={"namespace": self.namespace, "match_count": len(results)},
+            "FAISS similarity search completed",
+            extra={"namespace": self.namespace, "matches": len(results)},
         )
         return results
 
 
-def get_pinecone_vector_store(namespace: str = DEFAULT_NAMESPACE) -> PineconeVectorStore:
-    index = _build_pinecone_index()
-    return PineconeVectorStore(index=index, namespace=namespace)
+# Keep old name as alias so existing code that references PineconeVectorStore still works
+PineconeVectorStore = FAISSVectorStore
+
+
+def get_pinecone_vector_store(namespace: str = DEFAULT_NAMESPACE) -> FAISSVectorStore:
+    """Factory — returns a cached FAISS store per namespace."""
+    global _store_cache
+    if namespace not in _store_cache:
+        with _store_lock:
+            if namespace not in _store_cache:
+                _store_cache[namespace] = FAISSVectorStore(namespace=namespace)
+    return _store_cache[namespace]
