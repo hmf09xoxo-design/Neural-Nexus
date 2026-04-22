@@ -75,9 +75,19 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 MODEL_PATH = Path(__file__).resolve().parent / "models" / "model.pth"
 
-model = ResNetBiLSTM().to(device)
-model.load_state_dict(torch.load(str(MODEL_PATH), map_location=device))
-model.eval()
+# Lazy load model to allow app startup even if model file is missing
+_model = None
+
+def get_model():
+    global _model
+    if _model is None:
+        _model = ResNetBiLSTM().to(device)
+        if MODEL_PATH.exists():
+            _model.load_state_dict(torch.load(str(MODEL_PATH), map_location=device))
+        else:
+            logger.warning(f"Model file not found at {MODEL_PATH}, using uninitialized model")
+        _model.eval()
+    return _model
 
 
 def split_audio(audio, sr, chunk_duration=3):

@@ -29,9 +29,22 @@ N_MFCC = 40
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 MODEL_PATH = Path(__file__).resolve().parent / "models" / "model.pth"
-voice_model = ResNetBiLSTM().to(device)
-voice_model.load_state_dict(torch.load(str(MODEL_PATH), map_location=device))
-voice_model.eval()
+
+# Lazy load model to allow app startup even if model file is missing
+_voice_model = None
+
+def get_voice_model():
+    global _voice_model
+    if _voice_model is None:
+        _voice_model = ResNetBiLSTM().to(device)
+        if MODEL_PATH.exists():
+            _voice_model.load_state_dict(torch.load(str(MODEL_PATH), map_location=device))
+        else:
+            import logging
+            logger = logging.getLogger("zora.voice_analysis_ws")
+            logger.warning(f"Model file not found at {MODEL_PATH}, using uninitialized model")
+        _voice_model.eval()
+    return _voice_model
 
 
 # ──────────────────────────────────────────
@@ -90,7 +103,7 @@ def run_voice_model_logic_on_numpy(chunk):
         chunk = chunk / np.max(np.abs(chunk))
     with torch.no_grad():
         input_tensor = preprocess_chunk(chunk, SR)
-        output = voice_model(input_tensor)
+        output = get_voice_model()(input_tensor)
         probs = torch.softmax(output, dim=1)
         pred = torch.argmax(output, dim=1).item()
     return {
