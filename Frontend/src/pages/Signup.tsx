@@ -8,7 +8,7 @@ export default function Signup() {
   const { signup } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
-  const [username, setUsername] = useState('')
+  const [fullName, setFullName] = useState('')
   const [password, setPassword] = useState('')
   const [show, setShow] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -19,7 +19,7 @@ export default function Signup() {
     setLoading(true)
     setError('')
     try {
-      await signup(email, username, password)
+      await signup(email, fullName, password)
       navigate('/')
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
@@ -49,11 +49,11 @@ export default function Signup() {
             )}
 
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">Username</label>
+              <label className="block text-xs font-medium text-slate-400 mb-1.5">Full Name</label>
               <input
                 type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
                 required
                 placeholder="yourname"
                 className="w-full bg-slate-800/60 border border-slate-700 text-slate-200 rounded-lg px-4 py-2.5 text-sm placeholder-slate-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition"

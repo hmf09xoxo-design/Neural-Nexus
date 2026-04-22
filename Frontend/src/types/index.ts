@@ -1,8 +1,9 @@
 export interface User {
   id: string
   email: string
-  username: string
+  full_name: string | null
   role: string
+  organization_name?: string | null
 }
 
 export interface AuthState {

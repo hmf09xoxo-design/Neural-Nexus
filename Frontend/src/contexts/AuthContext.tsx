@@ -7,7 +7,7 @@ interface AuthCtx {
   loading: boolean
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
-  signup: (email: string, username: string, password: string) => Promise<void>
+  signup: (email: string, full_name: string, password: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthCtx | null>(null)
@@ -24,8 +24,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = async (email: string, password: string) => {
-    const r = await authApi.login(email, password)
-    setUser(r.data.user)
+    await authApi.login(email, password)
+    // Backend sets HttpOnly cookies — fetch user via /auth/me
+    const me = await authApi.me()
+    setUser(me.data)
   }
 
   const logout = async () => {
@@ -33,9 +35,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }
 
-  const signup = async (email: string, username: string, password: string) => {
-    await authApi.signup(email, username, password)
-    await login(email, password)
+  const signup = async (email: string, full_name: string, password: string) => {
+    await authApi.signup(email, full_name, password)
+    // Signup also sets cookies — fetch user immediately
+    const me = await authApi.me()
+    setUser(me.data)
   }
 
   return (

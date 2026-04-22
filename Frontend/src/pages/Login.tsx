@@ -20,8 +20,16 @@ export default function Login() {
     try {
       await login(email, password)
       navigate('/')
-    } catch {
-      setError('Invalid credentials. Please try again.')
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number; data?: { detail?: string } } })?.response?.status
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      if (status === 401) {
+        setError('Wrong email or password.')
+      } else if (detail) {
+        setError(detail)
+      } else {
+        setError(`Login failed (${status ?? 'network error'}) — is the backend running?`)
+      }
     } finally {
       setLoading(false)
     }

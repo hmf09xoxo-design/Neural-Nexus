@@ -63,10 +63,10 @@ export default function Sidebar() {
       <div className="px-3 pb-4 border-t border-slate-800 pt-3">
         <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-slate-800/40">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-indigo-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-            {user?.username?.[0]?.toUpperCase() ?? 'U'}
+            {(user?.full_name ?? user?.email ?? 'U')[0].toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-slate-200 text-xs font-medium truncate">{user?.username ?? 'User'}</p>
+            <p className="text-slate-200 text-xs font-medium truncate">{user?.full_name ?? user?.email ?? 'User'}</p>
             <p className="text-slate-500 text-[10px] truncate">{user?.email ?? ''}</p>
           </div>
           <button
