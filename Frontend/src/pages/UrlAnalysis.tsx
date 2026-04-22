@@ -139,11 +139,12 @@ export default function UrlAnalysis() {
                     <p className="text-xs text-slate-300 truncate">{(item.url as string) ?? 'URL'}</p>
                     <div className="flex items-center gap-2 mt-1">
                       <ThreatBadge
-                        label={(item.result as Record<string, boolean>)?.is_phishing ? 'Phishing' : 'Safe'}
+                        label={String(item.risk_level || (Number(item.risk_score) > 0.5 ? 'Phishing' : 'Safe'))}
+                        score={Number(item.risk_score ?? 0)}
                         size="sm"
                       />
                       <span className="text-[10px] text-slate-600">
-                        {new Date(item.created_at as string).toLocaleDateString()}
+                        {item.created_at ? new Date(item.created_at as string).toLocaleDateString() : ''}
                       </span>
                     </div>
                   </div>

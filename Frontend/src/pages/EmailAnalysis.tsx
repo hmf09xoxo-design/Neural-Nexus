@@ -38,6 +38,8 @@ export default function EmailAnalysis() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['email-history'] }),
   })
 
+  const label = result?.fraud_type ?? (result ? (result.risk_score > 0.5 ? 'Phishing' : 'Safe') : '')
+
   return (
     <Layout title="Email Analysis" subtitle="Identify phishing emails, spoofed senders, and malicious content">
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
@@ -94,16 +96,22 @@ export default function EmailAnalysis() {
             <div className="bg-[#0d0e16] border border-slate-800 rounded-xl p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-white">Analysis Result</h2>
-                <ThreatBadge label={result.prediction} score={result.risk_score} />
+                <ThreatBadge label={label} score={result.risk_score} />
               </div>
-              <RiskMeter score={result.risk_score} />
+              <RiskMeter score={result.risk_score ?? 0} />
               <div className="flex items-center justify-between text-xs text-slate-400">
                 <span>Confidence</span>
-                <span className="text-slate-200 font-medium">{Math.round(result.confidence * 100)}%</span>
+                <span className="text-slate-200 font-medium">{Math.round((result.confidence ?? 0) * 100)}%</span>
               </div>
-              {result.explanation && (
+              {result.nlp_score !== undefined && (
+                <div className="flex items-center justify-between text-xs text-slate-400">
+                  <span>NLP Score</span>
+                  <span className="text-slate-200 font-medium">{Math.round((result.nlp_score ?? 0) * 100)}%</span>
+                </div>
+              )}
+              {result.llm_explanation && (
                 <div className="bg-slate-800/40 rounded-lg p-3 text-xs text-slate-300 leading-relaxed border border-slate-700/50">
-                  {result.explanation}
+                  {result.llm_explanation}
                 </div>
               )}
             </div>
@@ -140,17 +148,16 @@ export default function EmailAnalysis() {
                 >
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-slate-300 truncate font-medium">
-                      {String(item.subject ?? 'Email')}
+                      {String(item.subject ?? item.text ?? 'Email')}
                     </p>
                     <div className="flex items-center gap-2 mt-1">
-                      {!!item.result && (
-                        <ThreatBadge
-                          label={(item.result as Record<string, string>).prediction ?? 'Unknown'}
-                          size="sm"
-                        />
-                      )}
+                      <ThreatBadge
+                        label={String(item.fraud_type ?? (Number(item.risk_score) > 0.5 ? 'Phishing' : 'Safe'))}
+                        score={Number(item.risk_score ?? 0)}
+                        size="sm"
+                      />
                       <span className="text-[10px] text-slate-600">
-                        {new Date(item.created_at as string).toLocaleDateString()}
+                        {item.created_at ? new Date(item.created_at as string).toLocaleDateString() : ''}
                       </span>
                     </div>
                   </div>

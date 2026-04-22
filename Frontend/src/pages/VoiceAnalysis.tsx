@@ -211,14 +211,13 @@ export default function VoiceAnalysis() {
                       {String(item.filename ?? 'Audio file')}
                     </p>
                     <div className="flex items-center gap-2 mt-1">
-                      {!!item.result && (
-                        <ThreatBadge
-                          label={(item.result as Record<string, string>).label ?? 'Unknown'}
-                          size="sm"
-                        />
-                      )}
+                      <ThreatBadge
+                        label={String(item.voice_result ?? (item.is_fraud ? 'Deepfake' : 'Authentic'))}
+                        score={Number(item.risk_score ?? 0)}
+                        size="sm"
+                      />
                       <span className="text-[10px] text-slate-600">
-                        {new Date(item.created_at as string).toLocaleDateString()}
+                        {item.created_at ? new Date(item.created_at as string).toLocaleDateString() : ''}
                       </span>
                     </div>
                   </div>

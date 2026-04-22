@@ -145,11 +145,11 @@ export default function AttachmentAnalysis() {
                     </p>
                     <div className="flex items-center gap-2 mt-1">
                       <ThreatBadge
-                        label={(item.result as Record<string, boolean>)?.is_malicious ? 'Malicious' : 'Safe'}
+                        label={String(item.final_verdict ?? 'Unknown')}
                         size="sm"
                       />
                       <span className="text-[10px] text-slate-600">
-                        {new Date(item.created_at as string).toLocaleDateString()}
+                        {item.created_at ? new Date(item.created_at as string).toLocaleDateString() : ''}
                       </span>
                     </div>
                   </div>

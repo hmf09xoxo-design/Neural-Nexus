@@ -27,19 +27,26 @@ export interface HistoryItem {
 
 export interface SmsAnalysisResult {
   request_id: string
-  prediction: string
+  fraud_type: string | null
   confidence: number
   risk_score: number
-  explanation?: string
-  features?: Record<string, unknown>
+  nlp_score?: number
+  similarity_score?: number
+  explanation?: string | null
+  llm_explanation?: string | null
+  prediction?: Record<string, unknown>
 }
 
 export interface EmailAnalysisResult {
   request_id: string
-  prediction: string
+  fraud_type: string | null
   confidence: number
   risk_score: number
-  explanation?: string
+  nlp_score?: number
+  similarity_score?: number
+  llm_explanation?: string | null
+  subject?: string
+  sender?: string
 }
 
 export interface UrlAnalysisResult {

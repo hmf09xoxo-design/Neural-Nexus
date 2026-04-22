@@ -51,7 +51,6 @@ app.include_router(voice_analysis_router)
 app.include_router(api_keys_router)
 app.include_router(portal_router)
 app.include_router(voice_ws_router)
-app.include_router(api_keys_router)
 
 @app.get("/")
 def home():

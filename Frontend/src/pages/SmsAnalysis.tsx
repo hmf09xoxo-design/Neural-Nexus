@@ -68,16 +68,16 @@ export default function SmsAnalysis() {
             <div className="bg-[#0d0e16] border border-slate-800 rounded-xl p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-white">Analysis Result</h2>
-                <ThreatBadge label={result.prediction} score={result.risk_score} />
+                <ThreatBadge label={result.fraud_type ?? (result.risk_score > 0.5 ? 'Spam' : 'Safe')} score={result.risk_score} />
               </div>
               <RiskMeter score={result.risk_score} />
               <div className="flex items-center justify-between text-xs text-slate-400">
                 <span>Confidence</span>
                 <span className="text-slate-200 font-medium">{Math.round(result.confidence * 100)}%</span>
               </div>
-              {result.explanation && (
+              {(result.llm_explanation || result.explanation) && (
                 <div className="bg-slate-800/40 rounded-lg p-3 text-xs text-slate-300 leading-relaxed border border-slate-700/50">
-                  {result.explanation}
+                  {result.llm_explanation ?? result.explanation}
                 </div>
               )}
             </div>
@@ -116,14 +116,13 @@ export default function SmsAnalysis() {
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-slate-300 truncate">{String(item.text ?? 'SMS message')}</p>
                     <div className="flex items-center gap-2 mt-1">
-                      {!!item.result && (
-                        <ThreatBadge
-                          label={(item.result as Record<string, string>).prediction ?? 'Unknown'}
-                          size="sm"
-                        />
-                      )}
+                      <ThreatBadge
+                        label={String(item.fraud_type ?? (Number(item.risk_score) > 0.5 ? 'Spam' : 'Safe'))}
+                        score={Number(item.risk_score ?? 0)}
+                        size="sm"
+                      />
                       <span className="text-[10px] text-slate-600">
-                        {new Date(item.created_at as string).toLocaleDateString()}
+                        {item.created_at ? new Date(item.created_at as string).toLocaleDateString() : ''}
                       </span>
                     </div>
                   </div>

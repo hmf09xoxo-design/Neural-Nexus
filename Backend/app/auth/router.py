@@ -80,7 +80,12 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-    user = db.query(User).filter(User.id == user_id).first()
+    import uuid as _uuid
+    try:
+        normalized_id = str(_uuid.UUID(user_id))
+    except ValueError:
+        normalized_id = user_id
+    user = db.query(User).filter(User.id == normalized_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 

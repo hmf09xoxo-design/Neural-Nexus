@@ -6,8 +6,8 @@ interface Props {
   size?: 'sm' | 'md'
 }
 
-function getThreatLevel(label: string, score?: number) {
-  const l = label.toLowerCase()
+function getThreatLevel(label: string | null | undefined, score?: number) {
+  const l = (label ?? '').toLowerCase()
   if (l.includes('safe') || l.includes('real') || l.includes('legitimate') || l === 'ham') {
     return 'safe'
   }
@@ -18,7 +18,8 @@ function getThreatLevel(label: string, score?: number) {
 }
 
 export default function ThreatBadge({ label, score, size = 'md' }: Props) {
-  const level = getThreatLevel(label, score)
+  const safeLabel = label ?? 'Unknown'
+  const level = getThreatLevel(safeLabel, score)
 
   return (
     <span
@@ -38,7 +39,7 @@ export default function ThreatBadge({ label, score, size = 'md' }: Props) {
           level === 'threat' && 'bg-red-400',
         )}
       />
-      {label}
+      {safeLabel}
     </span>
   )
 }

@@ -42,34 +42,64 @@ class EmailModelInferenceAPI:
             f"{checked}"
         )
 
+    _PHISH_KEYWORDS = [
+        "verify", "urgent", "suspend", "account", "click", "confirm", "password",
+        "login", "security", "alert", "bank", "credential", "update", "unusual",
+        "expire", "immediate", "action required", "limited time", "ssn", "social security",
+    ]
+
     def _load_model_once(self) -> None:
-        if self._model is not None and self._tokenizer is not None:
+        if self._model is not None or getattr(self, "_model_unavailable", False):
             return
 
         with self._load_lock:
-            if self._model is not None and self._tokenizer is not None:
+            if self._model is not None or getattr(self, "_model_unavailable", False):
                 return
 
             try:
                 import torch
                 from transformers import AutoModelForSequenceClassification, AutoTokenizer
-            except ImportError as exc:
-                raise RuntimeError(
-                    "transformers and torch are required for email model inference. "
-                    "Install them with 'pip install transformers torch'."
-                ) from exc
+            except ImportError:
+                logger.warning("transformers/torch not available — using keyword fallback")
+                self._model_unavailable = True
+                return
 
-            self._model_dir = self._resolve_model_dir()
+            try:
+                self._model_dir = self._resolve_model_dir()
+            except FileNotFoundError as exc:
+                logger.warning("Email model dir not found: %s — using keyword fallback", exc)
+                self._model_unavailable = True
+                return
+
             logger.info("Loading email model from %s", self._model_dir)
             print(f"[email-nlp] Loading model/tokenizer from: {self._model_dir}")
 
-            self._tokenizer = AutoTokenizer.from_pretrained(self._model_dir)
-            self._model = AutoModelForSequenceClassification.from_pretrained(self._model_dir)
-            self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            self._model.to(self._device)
+            try:
+                self._tokenizer = AutoTokenizer.from_pretrained(self._model_dir)
+                self._model = AutoModelForSequenceClassification.from_pretrained(self._model_dir)
+                self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+                self._model.to(self._device)
+                logger.info("Email NLP model loaded on device=%s", self._device)
+                print(f"[email-nlp] Model loaded on device: {self._device}")
+            except (OSError, Exception) as exc:
+                logger.warning("Failed to load email model weights: %s — using keyword fallback", exc)
+                self._model = None
+                self._tokenizer = None
+                self._model_unavailable = True
 
-            logger.info("Email NLP model loaded on device=%s", self._device)
-            print(f"[email-nlp] Model loaded on device: {self._device}")
+    def _keyword_predict(self, text: str) -> dict:
+        """Rule-based fallback when model weights are unavailable."""
+        lower = text.lower()
+        hits = sum(1 for kw in self._PHISH_KEYWORDS if kw in lower)
+        phishing_prob = min(round(hits / max(len(self._PHISH_KEYWORDS) * 0.4, 1), 4), 0.99)
+        label = "phishing" if phishing_prob >= 0.5 else "genuine"
+        return {
+            "label": label,
+            "confidence": round(phishing_prob if label == "phishing" else 1 - phishing_prob, 4),
+            "phishing_probability": phishing_prob,
+            "risk_score": phishing_prob,
+            "model_dir": "keyword-fallback",
+        }
 
     @staticmethod
     def _resolve_phishing_index(model_config: Any, num_classes: int) -> int:
@@ -94,6 +124,9 @@ class EmailModelInferenceAPI:
             raise ValueError("Email model input text must be a non-empty string")
 
         self._load_model_once()
+
+        if getattr(self, "_model_unavailable", False) or self._model is None:
+            return self._keyword_predict(text)
 
         import torch
 

@@ -1,10 +1,49 @@
 import uuid
-from sqlalchemy import Column, String, Boolean, DateTime, Integer, Float, ForeignKey, Text
-from sqlalchemy.dialects.postgresql import UUID
-from datetime import datetime
+import os
+from sqlalchemy import Column, String, Boolean, DateTime, Integer, Float, ForeignKey, Text, TypeDecorator
 from sqlalchemy.orm import relationship
+from datetime import datetime
 
 from .database import Base
+
+_db_url = os.getenv("DATABASE_URL", "")
+
+if _db_url.startswith("postgresql"):
+    from sqlalchemy.dialects.postgresql import UUID as _PG_UUID
+
+    class UUID(TypeDecorator):  # noqa: N801
+        impl = _PG_UUID(as_uuid=False)
+        cache_ok = True
+
+        def process_bind_param(self, value, dialect):
+            if value is None:
+                return None
+            if isinstance(value, uuid.UUID):
+                return str(value)
+            return str(value)
+
+        def process_result_value(self, value, dialect):
+            if value is None:
+                return None
+            return str(value)
+else:
+    class UUID(TypeDecorator):  # noqa: N801
+        impl = String(32)           # store as hex without dashes
+        cache_ok = True
+
+        def process_bind_param(self, value, dialect):
+            if value is None:
+                return None
+            if isinstance(value, uuid.UUID):
+                return value.hex    # hex, no dashes
+            v = str(value).replace('-', '')
+            return v
+
+        def process_result_value(self, value, dialect):
+            if value is None:
+                return None
+            v = str(value).replace('-', '')
+            return str(uuid.UUID(v))   # always return with dashes
 
 
 class User(Base):

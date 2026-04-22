@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 const backendProxy = {
-  target: 'http://localhost:8000',
+  target: 'http://localhost:8080',
   changeOrigin: true,
   cookieDomainRewrite: 'localhost',
   secure: false,
