@@ -16,6 +16,7 @@ from app.api_keys.router import router as api_keys_router
 from app.voice_analysis.websocket_router import ws_router as voice_ws_router
 from app.middleware.auth_logging import AuthLoggingMiddleware
 from app.ai_security.middleware import ShadowGuardMiddleware
+from app.routers.extension_detection import router as extension_router
 
 
 if sys.platform == "win32":
@@ -51,6 +52,7 @@ app.include_router(voice_analysis_router)
 app.include_router(api_keys_router)
 app.include_router(portal_router)
 app.include_router(voice_ws_router)
+app.include_router(extension_router)
 
 @app.get("/")
 def home():

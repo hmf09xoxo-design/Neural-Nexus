@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>HMF Shield — Blocked</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        background: #0d0e16;
+        color: #e2e8f0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 24px;
+      }
+      .card {
+        background: #1a0000;
+        border: 1px solid #ef4444;
+        border-radius: 16px;
+        padding: 40px;
+        max-width: 520px;
+        width: 100%;
+        text-align: center;
+      }
+      .icon { font-size: 56px; margin-bottom: 16px; }
+      h1 { color: #fca5a5; font-size: 22px; margin-bottom: 8px; }
+      .reason { color: #94a3b8; font-size: 14px; line-height: 1.6; margin: 12px 0; }
+      .url-box {
+        background: #0f172a; border: 1px solid #334155;
+        border-radius: 8px; padding: 10px 14px;
+        font-size: 12px; color: #64748b;
+        word-break: break-all; margin: 16px 0;
+      }
+      .btn {
+        display: inline-block; margin-top: 8px; padding: 10px 24px;
+        border-radius: 8px; font-size: 14px; font-weight: 600;
+        cursor: pointer; text-decoration: none;
+        background: #1e293b; color: #e2e8f0; border: 1px solid #334155;
+      }
+      .btn:hover { background: #334155; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="icon">🛡️</div>
+      <h1>HMF Shield — Threat Blocked</h1>
+      <p class="reason" id="reason">This URL was identified as potentially malicious.</p>
+      <div class="url-box" id="url-box">Loading…</div>
+      <a href="javascript:history.back()" class="btn">← Go Back</a>
+    </div>
+    <script>
+      const params = new URLSearchParams(location.search);
+      const url = params.get("url") ?? "";
+      const reason = params.get("reason") ?? "Phishing risk detected.";
+      document.getElementById("url-box").textContent = url;
+      document.getElementById("reason").textContent = reason;
+    </script>
+  </body>
+</html>
