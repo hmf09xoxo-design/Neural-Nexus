@@ -75,9 +75,16 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 MODEL_PATH = Path(__file__).resolve().parent / "models" / "model.pth"
 
-model = ResNetBiLSTM().to(device)
-model.load_state_dict(torch.load(str(MODEL_PATH), map_location=device))
-model.eval()
+_voice_model_unavailable = False
+try:
+    model = ResNetBiLSTM().to(device)
+    model.load_state_dict(torch.load(str(MODEL_PATH), map_location=device, weights_only=False))
+    model.eval()
+    logger.info("ResNetBiLSTM voice model loaded from %s", MODEL_PATH)
+except Exception as _e:
+    logger.warning("Voice model failed to load (%s) — audio analysis will return error responses", _e)
+    model = None
+    _voice_model_unavailable = True
 
 
 def split_audio(audio, sr, chunk_duration=3):
@@ -105,6 +112,8 @@ def preprocess_chunk(chunk, sr):
 
 def run_voice_model_logic(audio_bytes):
     """Standardized logic for ResNet-BiLSTM inference"""
+    if _voice_model_unavailable or model is None:
+        return {"error": "Voice model weights not loaded — place model.pth in voice_analysis/models/"}
     print("Running ResNet-BiLSTM Voice Analysis")
     
     # Load audio (force 16k)
