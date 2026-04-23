@@ -152,26 +152,38 @@ const f2  = (n: number | null) => (n === null ? "—" : n.toFixed(2))
 // ─── Risk visual tokens ──────────────────────────────────────────────────────
 
 const RISK_TEXT: Record<RiskLevel, string> = {
-  LOW:    "text-foreground/35",
+  LOW:    "text-foreground/70",
   MEDIUM: "text-accent",
   HIGH:   "text-destructive",
 }
 
 const RISK_BORDER: Record<RiskLevel, string> = {
-  LOW:    "border-border/20",
-  MEDIUM: "border-accent/25",
-  HIGH:   "border-destructive/35",
+  LOW:    "border-border/35",
+  MEDIUM: "border-accent/45",
+  HIGH:   "border-destructive/55",
+}
+
+const RISK_BAR: Record<RiskLevel, string> = {
+  LOW:    "bg-foreground/40",
+  MEDIUM: "bg-accent/75",
+  HIGH:   "bg-destructive/85",
+}
+
+const RISK_FLAG_BORDER: Record<RiskLevel, string> = {
+  LOW:    "border-border/30",
+  MEDIUM: "border-accent/35",
+  HIGH:   "border-destructive/45",
 }
 
 // ─── Internal atoms ──────────────────────────────────────────────────────────
 
 function Divider() {
-  return <div className="border-b border-border/10" />
+  return <div className="border-b border-border/15" />
 }
 
 function SectionLabel({ children }: { children: ReactNode }) {
   return (
-    <p className="font-mono text-[9px] uppercase tracking-[0.45em] text-muted-foreground/40 mb-4">
+    <p className="font-mono text-[9px] uppercase tracking-[0.45em] text-muted-foreground/55 mb-4">
       {children}
     </p>
   )
@@ -180,10 +192,10 @@ function SectionLabel({ children }: { children: ReactNode }) {
 function CoreMetric({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
   return (
     <div>
-      <p className="font-mono text-[8px] uppercase tracking-[0.35em] text-muted-foreground/35 mb-1.5">
+      <p className="font-mono text-[8px] uppercase tracking-[0.35em] text-muted-foreground/50 mb-1.5">
         {label}
       </p>
-      <p className={`font-mono text-sm tracking-[0.03em] ${accent ? "text-accent" : "text-foreground/75"}`}>
+      <p className={`font-mono text-sm tracking-[0.03em] ${accent ? "text-accent" : "text-foreground/90"}`}>
         {value}
       </p>
     </div>
@@ -193,10 +205,10 @@ function CoreMetric({ label, value, accent = false }: { label: string; value: st
 function TinySignal({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline gap-1.5">
-      <span className="font-mono text-[8px] uppercase tracking-[0.25em] text-muted-foreground/25">
+      <span className="font-mono text-[8px] uppercase tracking-[0.25em] text-muted-foreground/40">
         {label}
       </span>
-      <span className="font-mono text-[10px] text-muted-foreground/35">{value}</span>
+      <span className="font-mono text-[10px] text-muted-foreground/60">{value}</span>
     </div>
   )
 }
@@ -222,19 +234,21 @@ export function AnalysisResult({ data }: { data: AnalysisData }) {
     return () => cancelAnimationFrame(raf)
   }, [])
 
-  const riskText   = d.riskLevel ? RISK_TEXT[d.riskLevel]   : "text-foreground/25"
-  const riskBorder = d.riskLevel ? RISK_BORDER[d.riskLevel] : "border-border/15"
+  const riskText      = d.riskLevel ? RISK_TEXT[d.riskLevel]       : "text-foreground/50"
+  const riskBorder    = d.riskLevel ? RISK_BORDER[d.riskLevel]     : "border-border/25"
+  const riskBar       = d.riskLevel ? RISK_BAR[d.riskLevel]        : "bg-foreground/30"
+  const riskFlagBorder = d.riskLevel ? RISK_FLAG_BORDER[d.riskLevel] : "border-border/30"
 
   return (
     <div ref={rootRef} className={`border ${riskBorder} mt-8`}>
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between px-5 py-3">
-        <span className="font-mono text-[9px] uppercase tracking-[0.45em] text-muted-foreground/40">
+        <span className="font-mono text-[9px] uppercase tracking-[0.45em] text-muted-foreground/55">
           Threat Assessment
         </span>
         {d.reqId && (
-          <span className="font-mono text-[8px] text-muted-foreground/20 tracking-[0.15em]">
+          <span className="font-mono text-[8px] text-muted-foreground/35 tracking-[0.15em]">
             {d.reqId.slice(0, 8).toUpperCase()}
           </span>
         )}
@@ -242,7 +256,7 @@ export function AnalysisResult({ data }: { data: AnalysisData }) {
       <Divider />
 
       {/* ── 1. Primary Signal ───────────────────────────────────────────────── */}
-      <div className="px-5 py-8">
+      <div className="px-5 pt-8 pb-5">
         <SectionLabel>Risk Level</SectionLabel>
         <div className="flex items-end gap-3">
           {d.riskLevel === "HIGH" && (
@@ -257,11 +271,21 @@ export function AnalysisResult({ data }: { data: AnalysisData }) {
             {d.riskLevel ?? "UNKNOWN"}
           </span>
           {d.riskScore !== null && (
-            <span className="font-mono text-[10px] text-muted-foreground/30 mb-1.5 tracking-[0.1em]">
+            <span className="font-mono text-[10px] text-muted-foreground/50 mb-1.5 tracking-[0.1em]">
               {pct(d.riskScore)} raw
             </span>
           )}
         </div>
+
+        {/* ── Risk Score Bar ────────────────────────────────────────────────── */}
+        {d.riskScore !== null && (
+          <div className="mt-5 h-px bg-border/20 relative overflow-hidden">
+            <div
+              className={`absolute inset-y-0 left-0 ${riskBar} transition-all duration-700 ease-out`}
+              style={{ width: `${(d.riskScore * 100).toFixed(0)}%` }}
+            />
+          </div>
+        )}
       </div>
       <Divider />
 
@@ -295,14 +319,14 @@ export function AnalysisResult({ data }: { data: AnalysisData }) {
             {d.flags.map((flag, i) => (
               <span
                 key={i}
-                className="font-mono text-[9px] uppercase tracking-[0.15em] border border-border/20 px-2.5 py-1 text-muted-foreground/50"
+                className={`font-mono text-[9px] uppercase tracking-[0.15em] border ${riskFlagBorder} px-2.5 py-1 text-muted-foreground/70`}
               >
                 {flag.replace(/_/g, " ")}
               </span>
             ))}
           </div>
         ) : (
-          <p className="font-mono text-[10px] text-muted-foreground/25 tracking-[0.1em]">
+          <p className="font-mono text-[10px] text-muted-foreground/45 tracking-[0.1em]">
             No active threat indicators
           </p>
         )}
@@ -314,7 +338,7 @@ export function AnalysisResult({ data }: { data: AnalysisData }) {
           <Divider />
           <div className="px-5 py-6">
             <SectionLabel>Analysis Report //</SectionLabel>
-            <p className="font-mono text-[11px] text-muted-foreground/60 leading-relaxed max-w-prose">
+            <p className="font-mono text-[11px] text-muted-foreground/75 leading-relaxed max-w-prose">
               {d.explanation}
             </p>
           </div>
