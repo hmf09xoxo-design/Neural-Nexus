@@ -2141,9 +2141,6 @@
     border-color: var(--accent);
   }
 
-<<<<<<< HEAD
-  .border-accent\/20 {
-=======
   .border-accent\/35 {
     border-color: var(--accent);
   }
@@ -2155,7 +2152,6 @@
   }
 
   .border-accent\/45 {
->>>>>>> a96c78d (feat: implement dashboard analysis charts and loading state components)
     border-color: var(--accent);
   }
 
@@ -3240,6 +3236,11 @@
     letter-spacing: .1em;
   }
 
+  .tracking-\[0\.2em\] {
+    --tw-tracking: .2em;
+    letter-spacing: .2em;
+  }
+
   .tracking-\[0\.03em\] {
     --tw-tracking: .03em;
     letter-spacing: .03em;
@@ -3333,19 +3334,6 @@
     color: var(--accent-foreground);
   }
 
-<<<<<<< HEAD
-  .text-accent\/70 {
-    color: var(--accent);
-  }
-
-  @supports (color: color-mix(in lab, red, red)) {
-    .text-accent\/70 {
-      color: color-mix(in oklab, var(--accent) 70%, transparent);
-    }
-  }
-
-=======
->>>>>>> a96c78d (feat: implement dashboard analysis charts and loading state components)
   .text-amber-400 {
     color: var(--color-amber-400);
   }
@@ -7280,7 +7268,7 @@
 
 .grid-bg {
   background-image: linear-gradient(to right, #1b1b1b 1px, #0000 1px), linear-gradient(#1b1b1b 1px, #0000 1px);
-  background-image: linear-gradient(to right, lab(9.52% -.00000745058 0) 1px, #0000 1px), linear-gradient(lab(9.52% -.00000745058 0) 1px, #0000 1px);
+  background-image: linear-gradient(to right, lab(9.52% 0 0) 1px, #0000 1px), linear-gradient(lab(9.52% 0 0) 1px, #0000 1px);
   background-size: 60px 60px;
 }
 
@@ -7313,52 +7301,6 @@
   color: lab(.462488% 0 0);
   background: #fe6a00;
   background: lab(63.7311% 54.8773 72.7088);
-}
-
-@keyframes flicker {
-  0% {
-    opacity: .8;
-  }
-
-  5% {
-    opacity: .9;
-  }
-
-  10% {
-    opacity: .4;
-  }
-
-  15% {
-    opacity: 1;
-  }
-
-  25% {
-    opacity: .8;
-  }
-
-  30% {
-    opacity: 1;
-  }
-
-  70% {
-    opacity: .9;
-  }
-
-  72% {
-    opacity: .2;
-  }
-
-  77% {
-    opacity: .9;
-  }
-
-  100% {
-    opacity: .8;
-  }
-}
-
-.animate-flicker {
-  animation: 4s linear infinite flicker;
 }
 
 @property --tw-translate-x {

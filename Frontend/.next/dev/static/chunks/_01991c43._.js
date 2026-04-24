@@ -1075,7 +1075,12 @@ __turbopack_context__.s([
     "analyzeSms",
     ()=>analyzeSms
 ]);
-const BASE_URL = "http://localhost:8000";
+const __TURBOPACK__import$2e$meta__ = {
+    get url () {
+        return `file://${__turbopack_context__.P("lib/api/sms.ts")}`;
+    }
+};
+const BASE_URL = __TURBOPACK__import$2e$meta__.env.VITE_API_BASE_URL || "http://localhost:8000";
 async function analyzeSms(data) {
     const res = await fetch(`${BASE_URL}/text/sms/analyze`, {
         method: "POST",
@@ -1099,7 +1104,12 @@ __turbopack_context__.s([
     "analyzeEmail",
     ()=>analyzeEmail
 ]);
-const BASE_URL = "http://localhost:8000";
+const __TURBOPACK__import$2e$meta__ = {
+    get url () {
+        return `file://${__turbopack_context__.P("lib/api/email.ts")}`;
+    }
+};
+const BASE_URL = __TURBOPACK__import$2e$meta__.env.VITE_API_BASE_URL || "http://localhost:8000";
 async function analyzeEmail(data) {
     const res = await fetch(`${BASE_URL}/text/email/analyze/extension`, {
         method: "POST",
@@ -1123,7 +1133,12 @@ __turbopack_context__.s([
     "analyzeUrl",
     ()=>analyzeUrl
 ]);
-const BASE_URL = "http://localhost:8000";
+const __TURBOPACK__import$2e$meta__ = {
+    get url () {
+        return `file://${__turbopack_context__.P("lib/api/url.ts")}`;
+    }
+};
+const BASE_URL = __TURBOPACK__import$2e$meta__.env.VITE_API_BASE_URL || "http://localhost:8000";
 async function analyzeUrl(data) {
     const res = await fetch(`${BASE_URL}/url/analyze`, {
         method: "POST",
@@ -1147,7 +1162,12 @@ __turbopack_context__.s([
     "analyzeVoice",
     ()=>analyzeVoice
 ]);
-const BASE_URL = "http://localhost:8000";
+const __TURBOPACK__import$2e$meta__ = {
+    get url () {
+        return `file://${__turbopack_context__.P("lib/api/voice.ts")}`;
+    }
+};
+const BASE_URL = __TURBOPACK__import$2e$meta__.env.VITE_API_BASE_URL || "http://localhost:8000";
 async function analyzeVoice(file) {
     const form = new FormData();
     form.append("file", file);
@@ -1170,7 +1190,12 @@ __turbopack_context__.s([
     "analyzeAttachment",
     ()=>analyzeAttachment
 ]);
-const BASE_URL = "http://localhost:8000";
+const __TURBOPACK__import$2e$meta__ = {
+    get url () {
+        return `file://${__turbopack_context__.P("lib/api/attachment.ts")}`;
+    }
+};
+const BASE_URL = __TURBOPACK__import$2e$meta__.env.VITE_API_BASE_URL || "http://localhost:8000";
 async function analyzeAttachment(file, withLlmExplanation = false) {
     const form = new FormData();
     form.append("file", file);
