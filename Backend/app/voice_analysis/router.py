@@ -311,7 +311,11 @@ async def detect_fraud(request: Request, file: UploadFile = File(...), db: Sessi
     voice_task = loop.run_in_executor(executor, run_voice_model_logic, audio_bytes)
     transcript_task = loop.run_in_executor(executor, get_transcript, io.BytesIO(audio_bytes))
 
-    voice_res, transcript_text = await asyncio.gather(voice_task, transcript_task)
+    results = await asyncio.gather(voice_task, transcript_task, return_exceptions=True)
+    voice_res = results[0] if not isinstance(results[0], BaseException) else {"error": str(results[0])}
+    transcript_text = results[1] if not isinstance(results[1], BaseException) else ""
+    if isinstance(results[1], BaseException):
+        logger.warning("Transcription failed (non-fatal): %s", results[1])
 
     user_id_value = getattr(request.state, "user_id", None)
     user_id = None

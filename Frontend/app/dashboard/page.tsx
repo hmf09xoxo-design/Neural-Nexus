@@ -1,6 +1,19 @@
 "use client"
 
 import { useRef, useEffect, useState, useCallback, useMemo } from "react"
+
+interface LiveChunk {
+  id: number
+  transcript: string
+  voice_label: string
+  confidence: number
+  risk_score: number
+  warning: string
+  is_spoof: boolean
+}
+
+const WS_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080")
+  .replace(/^http/, "ws")
 import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
 import { Input } from "@/components/ui/input"
@@ -394,6 +407,14 @@ export default function DashboardPage() {
   const [voiceResult,  setVoiceResult]  = useState<AnalysisData | null>(null)
   const [voiceError,   setVoiceError]   = useState<string | null>(null)
 
+  // ── Live voice state ─────────────────────────────────────────────────────
+  const [liveActive,   setLiveActive]   = useState(false)
+  const [liveChunks,   setLiveChunks]   = useState<LiveChunk[]>([])
+  const [liveError,    setLiveError]    = useState<string | null>(null)
+  const wsRef   = useRef<WebSocket | null>(null)
+  const recRef  = useRef<MediaRecorder | null>(null)
+  const chunksEndRef = useRef<HTMLDivElement | null>(null)
+
   const [attachFile,    setAttachFile]   = useState<File | null>(null)
   const [attachLoading, setAttachLoading] = useState(false)
   const [attachResult,  setAttachResult] = useState<AnalysisData | null>(null)
@@ -499,6 +520,51 @@ export default function DashboardPage() {
       setVoiceError(err instanceof Error ? err.message : "Analysis failed")
     } finally { setVoiceLoading(false) }
   }, [voiceFile])
+
+  const startLive = useCallback(async () => {
+    setLiveError(null)
+    setLiveChunks([])
+    let stream: MediaStream
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    } catch {
+      setLiveError("Microphone access denied.")
+      return
+    }
+    const ws = new WebSocket(`${WS_BASE}/voice/ws/live-protect`)
+    wsRef.current = ws
+    ws.onopen = () => {
+      setLiveActive(true)
+      const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" })
+      recRef.current = recorder
+      recorder.ondataavailable = (e) => {
+        if (ws.readyState === WebSocket.OPEN && e.data.size > 0) ws.send(e.data)
+      }
+      recorder.start(500)
+    }
+    ws.onmessage = (e) => {
+      try {
+        const data: Omit<LiveChunk, "id"> = JSON.parse(e.data)
+        setLiveChunks((prev) => {
+          const next = [...prev, { ...data, id: prev.length + 1 }]
+          return next.slice(-30) // keep last 30
+        })
+        setTimeout(() => chunksEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50)
+      } catch { /* ignore parse errors */ }
+    }
+    ws.onerror = () => setLiveError("WebSocket connection failed.")
+    ws.onclose = () => {
+      setLiveActive(false)
+      stream.getTracks().forEach((t) => t.stop())
+    }
+  }, [])
+
+  const stopLive = useCallback(() => {
+    recRef.current?.stop()
+    wsRef.current?.send("STOP_CAPTURE")
+    wsRef.current?.close()
+    setLiveActive(false)
+  }, [])
 
   const handleAttachment = useCallback(async () => {
     if (!attachFile) return
@@ -726,7 +792,7 @@ export default function DashboardPage() {
 
           {/* 04 Voice */}
           <section
-            className="dashboard-section group relative"
+            className="dashboard-section group relative lg:col-span-2"
             style={{ borderLeft: "1px solid rgba(255,255,255,0.06)" }}
           >
             <div className="absolute left-0 top-0 w-px h-0 bg-accent transition-all duration-500 group-hover:h-full"
@@ -735,28 +801,200 @@ export default function DashboardPage() {
               <SectionHeader
                 index="04"
                 title="Voice Analysis"
-                description="ResNetBiLSTM analysis for synthetic voice and deepfake detection."
+                description="ResNetBiLSTM deepfake detection — upload an audio file or activate live microphone analysis with real-time transcript and fraud scoring."
               />
-              <div className="space-y-6">
-                <FileInputRow
-                  file={voiceFile}
-                  placeholder="Upload audio sample..."
-                  accept="audio/*"
-                  onFile={(f) => { setVoiceFile(f); setVoiceResult(null); setVoiceError(null) }}
-                />
-                <div className="flex justify-end">
-                  <ExecuteButton onClick={handleVoice} loading={voiceLoading} disabled={!voiceFile} />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+
+                {/* ── Left: File upload ── */}
+                <div className="space-y-6">
+                  <p className="font-mono text-[9px] uppercase tracking-[0.4em]"
+                    style={{ color: "rgba(255,255,255,0.38)" }}>
+                    // File Upload
+                  </p>
+                  <FileInputRow
+                    file={voiceFile}
+                    placeholder="Upload audio sample (.wav .mp3 .ogg)..."
+                    accept="audio/*"
+                    onFile={(f) => { setVoiceFile(f); setVoiceResult(null); setVoiceError(null) }}
+                  />
+                  <div className="flex justify-end">
+                    <ExecuteButton onClick={handleVoice} loading={voiceLoading} disabled={!voiceFile} />
+                  </div>
+                  <AnimatePresence mode="wait">
+                    {voiceLoading && <ScanningIndicator key="loading" />}
+                  </AnimatePresence>
+                  {voiceError && <ErrorBlock message={voiceError} />}
+                  {voiceResult && (
+                    <>
+                      <AnalysisResult data={voiceResult} />
+                      <ThreatVisualization data={voiceResult} />
+                    </>
+                  )}
                 </div>
-                <AnimatePresence mode="wait">
-                  {voiceLoading && <ScanningIndicator key="loading" />}
-                </AnimatePresence>
-                {voiceError && <ErrorBlock message={voiceError} />}
-                {voiceResult && (
-                  <>
-                    <AnalysisResult data={voiceResult} />
-                    <ThreatVisualization data={voiceResult} />
-                  </>
-                )}
+
+                {/* ── Right: Live microphone ── */}
+                <div className="space-y-6">
+                  <p className="font-mono text-[9px] uppercase tracking-[0.4em]"
+                    style={{ color: "rgba(255,255,255,0.38)" }}>
+                    // Live Monitor
+                  </p>
+
+                  {/* Start / Stop button */}
+                  {!liveActive ? (
+                    <button
+                      onClick={startLive}
+                      className="group/live relative inline-flex items-center gap-4 px-6 py-4 font-mono text-[10px] uppercase tracking-[0.3em] transition-all duration-300 overflow-hidden w-full justify-center"
+                      style={{ border: "1px solid rgba(232,117,0,0.4)", color: "rgba(232,117,0,0.85)" }}
+                    >
+                      <span className="absolute inset-0 opacity-0 group-hover/live:opacity-100 transition-opacity duration-300"
+                        style={{ background: "rgba(232,117,0,0.07)" }} />
+                      <motion.span
+                        className="w-2 h-2 rounded-full bg-accent flex-shrink-0"
+                        animate={{ opacity: [1, 0.3, 1] }}
+                        transition={{ duration: 1.2, repeat: Infinity }}
+                      />
+                      Activate Live Monitor
+                    </button>
+                  ) : (
+                    <button
+                      onClick={stopLive}
+                      className="inline-flex items-center gap-4 px-6 py-4 font-mono text-[10px] uppercase tracking-[0.3em] transition-all duration-300 w-full justify-center"
+                      style={{ border: "1px solid rgba(239,68,68,0.5)", color: "rgba(239,68,68,0.85)", background: "rgba(239,68,68,0.05)" }}
+                    >
+                      <motion.span
+                        className="w-2 h-2 rounded-full flex-shrink-0"
+                        style={{ background: "#ef4444" }}
+                        animate={{ opacity: [1, 0.2, 1] }}
+                        transition={{ duration: 0.6, repeat: Infinity }}
+                      />
+                      Stop Recording
+                    </button>
+                  )}
+
+                  {/* Live status indicator */}
+                  {liveActive && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="flex items-center gap-3 px-4 py-3"
+                      style={{ border: "1px solid rgba(232,117,0,0.2)", background: "rgba(232,117,0,0.04)" }}
+                    >
+                      <div className="flex items-end gap-[2px] h-4">
+                        {[0,1,2,3,4].map((i) => (
+                          <motion.div key={i} className="w-[2px] bg-accent"
+                            animate={{ scaleY: [0.2, 1, 0.2] }}
+                            transition={{ duration: 0.55, repeat: Infinity, delay: i * 0.08, ease: "easeInOut" }}
+                            style={{ transformOrigin: "bottom" }}
+                          />
+                        ))}
+                      </div>
+                      <span className="font-mono text-[9px] uppercase tracking-[0.3em] text-accent">
+                        Capturing audio — analysing in 3s chunks...
+                      </span>
+                    </motion.div>
+                  )}
+
+                  {liveError && <ErrorBlock message={liveError} />}
+
+                  {/* Chunk stream */}
+                  {liveChunks.length > 0 && (
+                    <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1"
+                      style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(232,117,0,0.3) transparent" }}>
+                      <p className="font-mono text-[8px] uppercase tracking-[0.4em] mb-3"
+                        style={{ color: "rgba(255,255,255,0.28)" }}>
+                        Live stream — {liveChunks.length} chunks
+                      </p>
+                      {liveChunks.map((chunk) => (
+                        <motion.div
+                          key={chunk.id}
+                          initial={{ opacity: 0, x: -8 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ duration: 0.3 }}
+                          style={{
+                            border: chunk.is_spoof
+                              ? "1px solid rgba(239,68,68,0.35)"
+                              : "1px solid rgba(255,255,255,0.08)",
+                            background: chunk.is_spoof
+                              ? "rgba(239,68,68,0.04)"
+                              : "rgba(255,255,255,0.02)",
+                          }}
+                          className="px-4 py-3"
+                        >
+                          {/* Header row */}
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-3">
+                              <span className="font-mono text-[8px] uppercase tracking-[0.3em]"
+                                style={{ color: "rgba(255,255,255,0.3)" }}>
+                                #{String(chunk.id).padStart(2, "0")}
+                              </span>
+                              <span
+                                className="font-mono text-[9px] uppercase tracking-[0.25em] px-2 py-0.5"
+                                style={{
+                                  color: chunk.is_spoof ? "rgba(239,68,68,0.9)" : "rgba(34,197,94,0.9)",
+                                  border: chunk.is_spoof ? "1px solid rgba(239,68,68,0.3)" : "1px solid rgba(34,197,94,0.25)",
+                                  background: chunk.is_spoof ? "rgba(239,68,68,0.08)" : "rgba(34,197,94,0.06)",
+                                }}
+                              >
+                                {chunk.voice_label}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <span className="font-mono text-[8px]"
+                                style={{ color: "rgba(255,255,255,0.35)" }}>
+                                conf {Math.round(chunk.confidence * 100)}%
+                              </span>
+                              {chunk.risk_score > 0 && (
+                                <span className="font-mono text-[8px] px-2 py-0.5"
+                                  style={{
+                                    color: chunk.risk_score >= 6 ? "rgba(239,68,68,0.9)" : "rgba(232,117,0,0.9)",
+                                    border: "1px solid rgba(232,117,0,0.25)",
+                                  }}>
+                                  risk {chunk.risk_score}/10
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Confidence bar */}
+                          <div className="h-[2px] w-full mb-2" style={{ background: "rgba(255,255,255,0.06)" }}>
+                            <div
+                              className="h-full transition-all duration-500"
+                              style={{
+                                width: `${Math.round(chunk.confidence * 100)}%`,
+                                background: chunk.is_spoof ? "#ef4444" : "#22c55e",
+                              }}
+                            />
+                          </div>
+
+                          {/* Transcript */}
+                          {chunk.transcript && (
+                            <p className="font-mono text-[10px] leading-relaxed"
+                              style={{ color: "rgba(255,255,255,0.55)", fontStyle: "italic" }}>
+                              &ldquo;{chunk.transcript}&rdquo;
+                            </p>
+                          )}
+
+                          {/* LLM warning */}
+                          {chunk.warning && (
+                            <p className="font-mono text-[9px] mt-2 leading-relaxed"
+                              style={{ color: "rgba(232,117,0,0.75)" }}>
+                              ⚠ {chunk.warning}
+                            </p>
+                          )}
+                        </motion.div>
+                      ))}
+                      <div ref={chunksEndRef} />
+                    </div>
+                  )}
+
+                  {!liveActive && liveChunks.length === 0 && (
+                    <div className="font-mono text-[9px] uppercase tracking-[0.3em] py-8 text-center"
+                      style={{ color: "rgba(255,255,255,0.18)", border: "1px dashed rgba(255,255,255,0.08)" }}>
+                      Live stream inactive — awaiting activation
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </section>
