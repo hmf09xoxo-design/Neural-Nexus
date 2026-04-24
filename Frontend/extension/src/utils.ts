@@ -94,6 +94,27 @@ export async function scanUrl(
   return resp.json() as Promise<DetectResponse>;
 }
 
+// ── Report a blocked URL to the backend database ──────────────────────────────
+export async function reportBlockedUrl(
+  url: string,
+  result: DetectResponse,
+  apiBaseUrl: string
+): Promise<void> {
+  const resp = await fetch(`${apiBaseUrl}/api/blocked/report`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      url,
+      risk_level: result.risk_level,
+      risk_score: result.risk_score,
+      reason: result.reason,
+      blocked_at: new Date().toISOString(),
+    }),
+    signal: AbortSignal.timeout(5000),
+  });
+  if (!resp.ok) throw new Error(`Report API error ${resp.status}`);
+}
+
 // ── Normalise URL (strip query/hash for cache key) ────────────────────────────
 export function cacheKey(url: string): string {
   try {

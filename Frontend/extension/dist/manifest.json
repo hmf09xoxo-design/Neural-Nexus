@@ -31,14 +31,16 @@
   ],
   "host_permissions": [
     "http://localhost:8080/*",
-    "http://127.0.0.1:8080/*"
+    "http://127.0.0.1:8080/*",
+    "http://localhost:8000/*",
+    "http://127.0.0.1:8000/*"
   ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
   },
   "web_accessible_resources": [
     {
-      "resources": ["blocked.html"],
+      "resources": ["blocked.html", "analyzing.html"],
       "matches": ["<all_urls>"]
     }
   ]
