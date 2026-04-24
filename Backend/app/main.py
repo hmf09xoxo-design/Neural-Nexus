@@ -25,22 +25,28 @@ if sys.platform == "win32":
 
 app = FastAPI()
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["https://mail.google.com", "http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5173", "http://127.0.0.1:5173"],
-    allow_origin_regex=r"chrome-extension://.*",
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
 )
 
-app.add_middleware(AuthLoggingMiddleware)
+# Middleware order: add innermost first, outermost last.
+# CORS must be outermost so its headers appear on every response,
+# including 401/429 errors from AuthLoggingMiddleware.
 app.add_middleware(ShadowGuardMiddleware)
+app.add_middleware(AuthLoggingMiddleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000", "http://127.0.0.1:3000",
+        "http://localhost:5173", "http://127.0.0.1:5173",
+        "https://mail.google.com",
+    ],
+    allow_origin_regex=r"chrome-extension://.*",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 Base.metadata.create_all(bind=engine)
 
