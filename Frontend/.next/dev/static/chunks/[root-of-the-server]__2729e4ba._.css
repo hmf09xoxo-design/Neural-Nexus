@@ -599,14 +599,14 @@
 
   @supports (color: lab(0% 0 0)) {
     :root, :host {
-      --color-red-50: lab(96.5005% 4.18508 1.52328);
-      --color-red-300: lab(76.5514% 36.422 15.5335);
-      --color-red-400: lab(63.7053% 60.745 31.3109);
+      --color-red-50: lab(96.5005% 4.18511 1.52329);
+      --color-red-300: lab(76.5514% 36.4219 15.5335);
+      --color-red-400: lab(63.7053% 60.7449 31.3109);
       --color-red-500: lab(55.4814% 75.0732 48.8528);
       --color-red-600: lab(48.4493% 77.4328 61.5452);
       --color-amber-400: lab(80.1641% 16.6016 99.2089);
       --color-amber-500: lab(72.7183% 31.8672 97.9407);
-      --color-emerald-400: lab(75.0771% -60.7313 19.4147);
+      --color-emerald-400: lab(75.0771% -60.7313 19.4146);
       --color-emerald-500: lab(66.9756% -58.27 19.5419);
       --color-blue-600: lab(44.0605% 29.0279 -86.0352);
       --color-blue-700: lab(36.9089% 35.0961 -85.6872);
@@ -614,10 +614,10 @@
       --color-indigo-500: lab(48.295% 38.3129 -81.9673);
       --color-indigo-600: lab(38.4009% 52.6132 -92.3857);
       --color-indigo-700: lab(32.4486% 49.2217 -84.6695);
-      --color-indigo-900: lab(23.3911% 24.6978 -50.4718);
-      --color-violet-300: lab(76.7419% 18.3911 -37.0706);
+      --color-indigo-900: lab(23.3911% 24.6978 -50.4719);
+      --color-violet-300: lab(76.7419% 18.391 -37.0706);
       --color-violet-400: lab(62.8239% 34.9159 -60.0512);
-      --color-violet-500: lab(49.9355% 55.1776 -81.8963);
+      --color-violet-500: lab(49.9355% 55.1777 -81.8963);
       --color-violet-600: lab(41.088% 68.9966 -91.995);
       --color-violet-700: lab(35.2783% 67.9912 -88.793);
       --color-violet-900: lab(24.3783% 45.7525 -61.4902);
@@ -632,8 +632,8 @@
       --color-slate-400: lab(65.5349% -2.25151 -14.5072);
       --color-slate-500: lab(48.0876% -2.03595 -16.5814);
       --color-slate-600: lab(35.5623% -1.74978 -15.4316);
-      --color-slate-700: lab(26.9569% -1.47016 -15.6993);
-      --color-slate-800: lab(16.132% -.318035 -14.6672);
+      --color-slate-700: lab(26.9569% -1.47018 -15.6993);
+      --color-slate-800: lab(16.132% -.318021 -14.6672);
     }
   }
 }
@@ -1693,6 +1693,10 @@
     max-height: 300px;
   }
 
+  .max-h-\[420px\] {
+    max-height: 420px;
+  }
+
   .max-h-screen {
     max-height: 100vh;
   }
@@ -1815,6 +1819,10 @@
 
   .w-\[1px\] {
     width: 1px;
+  }
+
+  .w-\[2px\] {
+    width: 2px;
   }
 
   .w-\[3px\] {
@@ -2276,8 +2284,16 @@
     gap: calc(var(--spacing) * 8);
   }
 
+  .gap-12 {
+    gap: calc(var(--spacing) * 12);
+  }
+
   .gap-\[0\.08em\] {
     gap: .08em;
+  }
+
+  .gap-\[2px\] {
+    gap: 2px;
   }
 
   .gap-\[3px\] {
@@ -3363,6 +3379,10 @@
     padding-block: calc(var(--spacing) * 6);
   }
 
+  .py-8 {
+    padding-block: calc(var(--spacing) * 8);
+  }
+
   .py-16 {
     padding-block: calc(var(--spacing) * 16);
   }
@@ -3982,8 +4002,16 @@
     }
   }
 
+  .capitalize {
+    text-transform: capitalize;
+  }
+
   .uppercase {
     text-transform: uppercase;
+  }
+
+  .italic {
+    font-style: italic;
   }
 
   .tabular-nums {
@@ -4477,6 +4505,12 @@
 
   @media (hover: hover) {
     .group-hover\/btn\:opacity-100:is(:where(.group\/btn):hover *) {
+      opacity: 1;
+    }
+  }
+
+  @media (hover: hover) {
+    .group-hover\/live\:opacity-100:is(:where(.group\/live):hover *) {
       opacity: 1;
     }
   }
@@ -6702,6 +6736,12 @@
   }
 
   @media (min-width: 64rem) {
+    .lg\:col-span-2 {
+      grid-column: span 2 / span 2;
+    }
+  }
+
+  @media (min-width: 64rem) {
     .lg\:grid-cols-2 {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -7635,7 +7675,7 @@
     --primary: lab(94.2% 0 0);
     --primary-foreground: lab(.462488% 0 0);
     --secondary: lab(5.26802% 0 0);
-    --secondary-foreground: lab(82.6% .0000298023 -.0000119209);
+    --secondary-foreground: lab(82.6% 0 0);
     --muted: lab(13% 0 0);
     --muted-foreground: lab(58.24% 0 0);
     --accent: lab(63.7311% 54.8773 72.7088);
@@ -7670,7 +7710,7 @@
 
 .grid-bg {
   background-image: linear-gradient(to right, #1b1b1b 1px, #0000 1px), linear-gradient(#1b1b1b 1px, #0000 1px);
-  background-image: linear-gradient(to right, lab(9.52% -.00000745058 0) 1px, #0000 1px), linear-gradient(lab(9.52% -.00000745058 0) 1px, #0000 1px);
+  background-image: linear-gradient(to right, lab(9.52% 0 0) 1px, #0000 1px), linear-gradient(lab(9.52% 0 0) 1px, #0000 1px);
   background-size: 60px 60px;
 }
 
