@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+import logging
 
 import joblib
 import pandas as pd
@@ -13,6 +14,8 @@ from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
 from sklearn.model_selection import train_test_split
 
 from app.url_analysis.feature_fusion_engine import FeatureFusionEngine
+
+logger = logging.getLogger(__name__)
 
 try:
     from xgboost import XGBClassifier
@@ -252,6 +255,9 @@ class URLMLRiskEngine:
         """Return active primary model object."""
         if self.primary_model_name == "xgboost" and self.xgb_model is not None:
             return self.xgb_model
+        if self.primary_model_name == "xgboost" and self.xgb_model is None:
+            logger.warning("XGBoost model selected but not found. Falling back to RandomForest classifier.")
+            self.primary_model_name = "random_forest"
         if self.rf_model is not None:
             return self.rf_model
         raise ValueError("No model loaded/trained")

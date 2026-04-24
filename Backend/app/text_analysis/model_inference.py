@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
+import logging
 import os
 from pathlib import Path
 from threading import Lock
 from typing import Any
 
 from app.text_analysis.preprocessing import validate_sms_text_quality
+
+logger = logging.getLogger(__name__)
 
 
 def _read_env_float(name: str, default: float) -> float:
@@ -125,6 +128,10 @@ class SMSModelInferenceAPI:
                 from transformers import AutoModelForSequenceClassification, AutoTokenizer
             except ImportError:
                 self._model_unavailable = True
+                logger.warning(
+                    "SMS transformer dependencies (torch/transformers) not available. "
+                    "Falling back to keyword-based phishing detection."
+                )
                 return
 
             try:
@@ -133,10 +140,22 @@ class SMSModelInferenceAPI:
                 self._model = AutoModelForSequenceClassification.from_pretrained(self._model_dir)
                 self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
                 self._model.to(self._device)
-            except (OSError, Exception):
+            except FileNotFoundError as e:
                 self._model = None
                 self._tokenizer = None
                 self._model_unavailable = True
+                logger.warning(
+                    f"SMS model weights not found: {e}. "
+                    "Falling back to keyword-based phishing detection (less accurate)."
+                )
+            except (OSError, Exception) as e:
+                self._model = None
+                self._tokenizer = None
+                self._model_unavailable = True
+                logger.warning(
+                    f"Failed to load SMS model: {e}. "
+                    "Falling back to keyword-based phishing detection (less accurate)."
+                )
 
     def _keyword_predict(self, text: str) -> dict[str, Any]:
         lower = text.lower()

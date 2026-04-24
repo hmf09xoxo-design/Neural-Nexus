@@ -8,7 +8,7 @@ const DB_VERSION = 1;
 // ── Default settings ──────────────────────────────────────────────────────────
 export const DEFAULT_SETTINGS: ExtensionSettings = {
   enabled: true,
-  apiBaseUrl: "http://localhost:8080",
+  apiBaseUrl: "http://localhost:8000",
   showSafeNotifications: false,
   autoBlockDanger: false,
 };
