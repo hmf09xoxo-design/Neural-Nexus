@@ -19,6 +19,9 @@ logger = logging.getLogger("zora.middleware")
 class AuthLoggingMiddleware(BaseHTTPMiddleware):
     AUTH_EXEMPT_PATHS = {"/", "/openapi.json"}
     AUTH_EXEMPT_PATH_PREFIXES = ("/docs", "/redoc", "/auth","/text/email/analyze/extension", "/voice/ws")
+    # Allow the browser extension detection endpoint to be called without API key
+    # (useful for local development). For production, prefer using API keys.
+    AUTH_EXEMPT_PATH_PREFIXES = AUTH_EXEMPT_PATH_PREFIXES + ("/api/detect",)
     RATE_LIMIT_EXEMPT_PATHS = {"/", "/openapi.json"}
     RATE_LIMIT_EXEMPT_PATH_PREFIXES = ("/docs", "/redoc")
 
