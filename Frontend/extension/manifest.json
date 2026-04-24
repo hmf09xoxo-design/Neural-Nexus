@@ -40,7 +40,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["blocked.html", "analyzing.html"],
+      "resources": ["blocked.html", "blocked.js", "analyzing.html"],
       "matches": ["<all_urls>"]
     }
   ]

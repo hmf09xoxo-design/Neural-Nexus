@@ -10,9 +10,14 @@ import time
 from typing import Any
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel, field_validator
+from datetime import datetime
 
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, field_validator
+from sqlalchemy.orm import Session
+
+from app.database import get_db
+from app.models import BlockedLink
 from app.url_analysis.feature_extractor import extract_url_features
 from app.url_analysis.ml_risk_engine import URLMLRiskEngine
 
@@ -82,12 +87,24 @@ _PHISHING_KEYWORDS = (
     "apple", "google", "microsoft", "reset", "suspend", "urgent",
 )
 
+# Any of these in the URL path/domain is near-certain malicious intent.
+# Each hit adds 0.5 so a single match pushes past the "danger" threshold (0.65).
+_DANGER_KEYWORDS = (
+    "phishing", "malware", "ransomware", "spyware", "trojan",
+    "exploit", "botnet", "virus", "keylogger", "rootkit",
+    "credential", "harvester", "dropper",
+)
+
 _SUSPICIOUS_TLDS = {".tk", ".ml", ".ga", ".cf", ".gq", ".xyz", ".top", ".click", ".link"}
 
 
 def _heuristic_score(url: str, features: dict[str, Any]) -> float:
     score = 0.0
     lower = url.lower()
+
+    # High-confidence danger keywords — one match is enough to flag as danger
+    danger_hits = sum(1 for kw in _DANGER_KEYWORDS if kw in lower)
+    score += min(danger_hits * 0.7, 0.9)
 
     kw_hits = sum(1 for kw in _PHISHING_KEYWORDS if kw in lower)
     score += min(kw_hits * 0.08, 0.35)
@@ -129,6 +146,9 @@ def _build_reason(score: float, url: str, features: dict[str, Any]) -> str:
 
     issues: list[str] = []
     lower = url.lower()
+    danger_hits = [kw for kw in _DANGER_KEYWORDS if kw in lower]
+    if danger_hits:
+        issues.append(f"high-risk content indicator: {', '.join(danger_hits[:3])}")
     kw_hits = [kw for kw in _PHISHING_KEYWORDS if kw in lower]
     if kw_hits:
         issues.append(f"suspicious keywords: {', '.join(kw_hits[:3])}")
@@ -226,3 +246,31 @@ async def detect_url(body: ExtensionDetectRequest) -> ExtensionDetectResponse:
             "ml_engine_used": engine is not None and not err,
         },
     )
+
+
+# ── Blocked link report endpoint ──────────────────────────────────────────────
+
+class BlockedLinkRequest(BaseModel):
+    url: str
+    risk_level: str
+    risk_score: float
+    reason: str | None = None
+    blocked_at: str | None = None
+
+
+@router.post("/blocked/report", status_code=status.HTTP_201_CREATED)
+async def report_blocked_link(
+    body: BlockedLinkRequest,
+    db: Session = Depends(get_db),
+) -> dict:
+    try:
+        record = BlockedLink(url=body.url)
+        db.add(record)
+        db.commit()
+        db.refresh(record)
+        logger.info("blocked_link saved link_id=%s url=%s", record.link_id, body.url)
+        return {"ok": True, "id": str(record.link_id)}
+    except Exception as exc:
+        db.rollback()
+        logger.error("blocked_link insert failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))

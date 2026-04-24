@@ -410,3 +410,16 @@ class PortalChat(Base):
 
     updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
+
+class BlockedLink(Base):
+
+    __tablename__ = "links"
+
+    link_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    url = Column(Text, nullable=False)
+
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
+
