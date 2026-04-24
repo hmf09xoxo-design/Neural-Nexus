@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "next build",
-    "predev": "lsof -ti:3000 | xargs kill -9 2>/dev/null || true; rm -rf .next/dev/lock || true",
+    "predev": "npx kill-port 3000",
     "dev": "next dev",
     "lint": "eslint .",
     "start": "next start",
