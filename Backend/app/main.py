@@ -1,9 +1,13 @@
 import logging
 import asyncio
+import os
 import sys
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
+
+load_dotenv()
 from app.database import engine
 from app.models import Base
 from app.auth.router import router as auth_router
@@ -33,16 +37,21 @@ logging.basicConfig(
 # Middleware order: add innermost first, outermost last.
 # CORS must be outermost so its headers appear on every response,
 # including 401/429 errors from AuthLoggingMiddleware.
+_base_origins = [
+    "http://localhost:3000", "http://127.0.0.1:3000",
+    "http://localhost:5173", "http://127.0.0.1:5173",
+    "https://mail.google.com",
+]
+_frontend_url = os.getenv("FRONTEND_URL", "")
+if _frontend_url:
+    _base_origins.append(_frontend_url.rstrip("/"))
+
 app.add_middleware(ShadowGuardMiddleware)
 app.add_middleware(AuthLoggingMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000", "http://127.0.0.1:3000",
-        "http://localhost:5173", "http://127.0.0.1:5173",
-        "https://mail.google.com",
-    ],
-    allow_origin_regex=r"chrome-extension://.*",
+    allow_origins=_base_origins,
+    allow_origin_regex=r"(chrome-extension://.*|https://.*\.netlify\.app)",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -12,14 +12,24 @@ import logging
 import os
 import time
 import requests
+from dotenv import load_dotenv
+
+load_dotenv(override=True)
 
 logger = logging.getLogger("zora.ai_security.shadow_guard")
 
-# ── Config ────────────────────────────────────────────────────────────────────
-SHADOW_MODEL = os.getenv("SHADOW_GUARD_MODEL", "phi3")
-SHADOW_OLLAMA_URL = os.getenv(
-    "SHADOW_GUARD_OLLAMA_URL", "http://localhost:11434/api/generate"
-)
+# ── Config (read fresh on each call so .env changes take effect without restart) ──
+def _cfg():
+    load_dotenv(override=True)
+    return {
+        "model": os.getenv("SHADOW_GUARD_MODEL", "llama3.2:1b"),
+        "url": os.getenv("SHADOW_GUARD_OLLAMA_URL", "http://localhost:11434/api/generate"),
+        "fail_closed": os.getenv("SHADOW_GUARD_FAIL_CLOSED", "1") == "1",
+    }
+
+# Keep module-level names for backward compat
+SHADOW_MODEL = os.getenv("SHADOW_GUARD_MODEL", "llama3.2:1b")
+SHADOW_OLLAMA_URL = os.getenv("SHADOW_GUARD_OLLAMA_URL", "http://localhost:11434/api/generate")
 FAIL_CLOSED = os.getenv("SHADOW_GUARD_FAIL_CLOSED", "1") == "1"
 
 # The refined prompt specifically allows fraudulent content while blocking system attacks
@@ -60,40 +70,45 @@ def is_prompt_injection(user_input: str) -> bool:
     if not user_input or not user_input.strip():
         return False
 
+    cfg = _cfg()
+    model = cfg["model"]
+    ollama_url = cfg["url"]
+    fail_closed = cfg["fail_closed"]
+
     payload = {
-        "model": SHADOW_MODEL,
+        "model": model,
         "prompt": f"{SYSTEM_PROMPT}\n\n<user_input>\n{user_input}\n</user_input>",
         "stream": False,
         "options": {
             "temperature": 0,
-            "num_predict": 5, 
+            "num_predict": 5,
         },
     }
 
     start = time.perf_counter()
     try:
-        response = requests.post(SHADOW_OLLAMA_URL, json=payload, timeout=(3, 10))
+        response = requests.post(ollama_url, json=payload, timeout=(3, 10))
         response.raise_for_status()
-        
+
         result_text = response.json().get("response", "").strip().upper()
         latency = f"{(time.perf_counter() - start) * 1000:.0f}ms"
-        
+
         # Ensure we only trigger on a clear TRUE and ignore ambiguous responses
         detected = "TRUE" in result_text and "FALSE" not in result_text
 
         if detected:
             snippet = user_input[:120].replace("\n", " ")
-            print(_BANNER.format(snippet=snippet, model=SHADOW_MODEL, latency=latency))
+            print(_BANNER.format(snippet=snippet, model=model, latency=latency))
             logger.warning(
                 "🛡️ Shadow Guard BLOCKED prompt injection | model=%s | latency=%s",
-                SHADOW_MODEL, latency
+                model, latency
             )
         else:
-            logger.info("Shadow Guard PASSED | model=%s | latency=%s", SHADOW_MODEL, latency)
+            logger.info("Shadow Guard PASSED | model=%s | latency=%s", model, latency)
 
         return detected
 
     except Exception as exc:
         latency = f"{(time.perf_counter() - start) * 1000:.0f}ms"
-        logger.error("Shadow Guard ERROR | model=%s | err=%s", SHADOW_MODEL, exc)
-        return FAIL_CLOSED
+        logger.error("Shadow Guard ERROR | model=%s | err=%s", model, exc)
+        return fail_closed

@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: hmf-backend
+    runtime: python
+    rootDir: Backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    plan: standard
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: FAISS_DATA_DIR
+        value: data/faiss
+      - key: RATE_LIMIT_ENABLED
+        value: "false"
+      - key: OLLAMA_URL
+        value: ""
+      - key: OLLAMA_TAGS_URL
+        value: ""
+      - key: OLLAMA_MODEL
+        value: ""
+      - key: SHADOW_GUARD_MODEL
+        value: ""
+      - key: SHADOW_GUARD_OLLAMA_URL
+        value: ""
+      - key: SHADOW_GUARD_FAIL_CLOSED
+        value: "0"
+      - key: FRONTEND_URL
+        sync: false
