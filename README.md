@@ -1,6 +1,6 @@
 <div align="center">
 
-# ⚡ Neural Nexus Shield
+# ⚡ Rapid3 Shield
 
 ### *An AI-powered threat intelligence platform that thinks like an attacker to defend like a fortress.*
 
@@ -16,7 +16,7 @@
 
 ## What Is This?
 
-Neural Nexus Shield is a **multi-vector fraud detection platform** that analyzes threats across five attack surfaces simultaneously — SMS, Email, URLs, Voice calls, and File attachments. Every channel runs its own specialized AI pipeline with multiple reasoning layers, and they all share a common fraud memory so a scam pattern detected in one channel helps block it in all the others.
+Rapid3 Shield is a **multi-vector fraud detection platform** that analyzes threats across five attack surfaces simultaneously — SMS, Email, URLs, Voice calls, and File attachments. Every channel runs its own specialized AI pipeline with multiple reasoning layers, and they all share a common fraud memory so a scam pattern detected in one channel helps block it in all the others.
 
 It was built with one obsession: **no single model should ever be the last line of defense.**
 
